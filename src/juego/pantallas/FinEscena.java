@@ -18,7 +18,7 @@ public class FinEscena extends Escena {
     @Override
     public void actualizar(double dt) {
         if (getContexto().getEntrada().fuePresionada(KeyEvent.VK_ENTER)) {
-            getContexto().irA(new MenuEscena());
+            getContexto().irA(new PantallaMenu(() -> new JuegoEscena(1, 0)));
         }
     }
 
