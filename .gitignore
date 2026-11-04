@@ -1,0 +1,5 @@
+out/
+fuentes.txt
+*.class
+.idea/
+*.iml
