@@ -2,6 +2,8 @@ package juego.entidades;
 
 import estructuras.Lista;
 import contratos.Dibujable;
+import estructuras.ListaDoble;
+
 import java.awt.Graphics2D;
 
 public class Snake implements Dibujable {
@@ -72,8 +74,31 @@ public class Snake implements Dibujable {
 
     @Override
     public void dibujar(Graphics2D g) {
-        for (int i = 0; i < cuerpo.tamanio(); i++) {
-            cuerpo.obtener(i).dibujar(g);
+        // Por defecto llamamos al dibujo pasando "DERECHA" como orientación base
+        dibujar(g, "DERECHA");
+    }
+
+
+    public void dibujar(Graphics2D g, String direccionActual) {
+        int tamano = cuerpo.tamanio();
+
+        for (int i = 0; i < tamano; i++) {
+            SegmentoSnake actual = cuerpo.obtener(i);
+
+            if (i == 0) {
+                actual.dibujarCabeza(g, direccionActual);
+            }
+            else if (i == tamano - 1) {
+                // 2. Es la COLA (último elemento)
+                SegmentoSnake penultimo = (tamano > 1) ? cuerpo.obtener(i - 1) : null;
+                actual.dibujarCola(g, penultimo);
+            }
+            else {
+                // 3. Es el CUERPO intermedio
+                SegmentoSnake anterior = cuerpo.obtener(i - 1);
+                SegmentoSnake siguiente = cuerpo.obtener(i + 1);
+                actual.dibujarSegmento(g, anterior, siguiente);
+            }
         }
     }
 }

@@ -1,5 +1,7 @@
 package juego.reglas;
 
+
+
 public class EstadoTurno {
     private int colaX;
     private int colaY;

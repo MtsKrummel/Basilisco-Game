@@ -204,11 +204,11 @@ public class PantallaMenu extends Escena {
     }
 
     // Botón con sus tres estados visuales y su acción
-    private static final class Boton {
-        private final BufferedImage normal;
-        private final BufferedImage activo;
-        private final BufferedImage hold;
-        private final Runnable accion;
+    static final class Boton {
+         final BufferedImage normal;
+         final BufferedImage activo;
+         final BufferedImage hold;
+         final Runnable accion;
 
         Boton(String normal, String activo, String hold, Runnable accion) {
             BufferedImage[] imagenes = recortarJuntas(cargar(normal), cargar(activo), cargar(hold));

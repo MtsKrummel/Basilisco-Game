@@ -1,5 +1,6 @@
 package juego.pantallas;
 
+import estructuras.Lista;
 import motor.Escena;
 import motor.Temporizador;
 import estructuras.ListaDoble;
@@ -7,12 +8,20 @@ import estructuras.PilaNodos;
 import estructuras.ColaNodos;
 import juego.entidades.*;
 import juego.reglas.EstadoTurno;
+import ui.BarraDeVida;
 import ui.Texto;
+import estructuras.Lista;
+import ui.BarraDeVida;
 
-import java.awt.Color;
-import java.awt.Graphics2D;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.net.URL;
+import javax.imageio.ImageIO;
 import java.awt.event.KeyEvent;
 import java.util.Random;
+import juego.reglas.Nivel;
+
 
 public class JuegoEscena extends Escena {
     private int nivel;
@@ -24,7 +33,8 @@ public class JuegoEscena extends Escena {
     private int tamanioCelda;
 
     private Snake serpiente;
-    private Consumible consumibleActual;
+    private Consumible manzanaActual;
+    private Consumible itemEspecialActual;
     private String direccionActual;
 
     private ColaNodos<String> colaGiros;
@@ -32,6 +42,27 @@ public class JuegoEscena extends Escena {
     private Temporizador timerPaso;
     private Temporizador timerConsumible;
     private Random random;
+    private Lista<Coordenada> obstaculosDelNivel;
+
+    private BufferedImage fondoUI;
+
+    private static BufferedImage cargar(String nombre){
+        URL url = JuegoEscena.class.getResource("/juego/pantallas/" + nombre);
+        if (url == null) {
+            throw new IllegalStateException("No se encontró la imagen: " + nombre);
+        }
+        try {
+            BufferedImage imagen = ImageIO.read(url);
+            if (imagen == null) {
+                throw new IllegalStateException("Formato no soportado: " + nombre);
+            }
+            return imagen;
+        } catch (IOException e) {
+            throw new IllegalStateException("No se pudo leer la imagen: " + nombre, e);
+        }
+    }
+
+
 
     public JuegoEscena() {
         this(1, 0);
@@ -47,36 +78,37 @@ public class JuegoEscena extends Escena {
         // Los consumibles desaparecen y cambian si no los comes en 6 segundos
         this.timerConsumible = new Temporizador(6.0);
 
+        fondoUI = cargar("Nivel" + Math.min(nivel, 3) + "/FondoUI.png");
+
         configurarNivel();
+        cargarObstaculosDelNivel(nivel);
 
         // Inicializar serpiente con la ListaDoble propia
+        int xInicial = 5;
+        int yInicial = 5;
+
         this.serpiente = new Snake(new ListaDoble<>(), columnas / 2, filas / 2, 3);
-        generarNuevoConsumible();
+        generarManzana();
+        generarItemEspecial();
     }
 
     private void configurarNivel() {
+        columnas = Nivel.columnas;
+        filas = Nivel.filas;
+        tamanioCelda = Nivel.tamanioCelda;
+
         if (nivel == 1) {
-            columnas = 15;
-            filas = 15;
-            metaPuntos = 50;
+            metaPuntos = 150;
             timerPaso = new Temporizador(0.35);
         } else if (nivel == 2) {
-            columnas = 22;
-            filas = 22;
-            metaPuntos = 150;
+            metaPuntos = 250;
             timerPaso = new Temporizador(0.25);
         } else {
-            columnas = 30;
-            filas = 30;
-            metaPuntos = 300;
+            metaPuntos = 350;
             timerPaso = new Temporizador(0.18);
         }
     }
 
-    @Override
-    public void alEntrar() {
-        this.tamanioCelda = getContexto().getAncho() / columnas;
-    }
 
     @Override
     public void actualizar(double dt) {
@@ -92,10 +124,37 @@ public class JuegoEscena extends Escena {
         }
 
         if (timerConsumible != null && timerConsumible.avanzar(dt)) {
-            generarNuevoConsumible();
+            generarItemEspecial();
             timerConsumible.reiniciar(); // <-- Obliga al ítem a cambiar
         }
     }
+
+
+    private void generarManzana() {
+        int rx, ry;
+        do {
+            rx = random.nextInt(Nivel.columnas);
+            ry = random.nextInt(Nivel.filas);
+        } while (!celdaLibre(rx, ry));
+        manzanaActual = new Manzana(rx, ry);
+    }
+
+    private void generarItemEspecial() {
+        int rx, ry;
+        do {
+            rx = random.nextInt(Nivel.columnas);
+            ry = random.nextInt(Nivel.filas);
+        } while (!celdaLibre(rx, ry));
+
+        if (random.nextBoolean()) {
+            itemEspecialActual = new Cientifico(rx, ry);
+        } else {
+            itemEspecialActual = new Veneno(rx, ry);
+        }
+        if (timerConsumible != null) timerConsumible.reiniciar();
+    }
+
+
 
     private void capturarTeclas() {
         var entrada = getContexto().getEntrada();
@@ -120,6 +179,8 @@ public class JuegoEscena extends Escena {
             getContexto().irA(new FinEscena(this.puntaje, false));
             return;
         }
+
+
 
         // Obtener siguiente dirección válida de la Cola
         if (!colaGiros.estaVacia()) {
@@ -159,21 +220,100 @@ public class JuegoEscena extends Escena {
 
         // Guardar estado en Pila antes de modificar el cuerpo
         SegmentoSnake colaActual = serpiente.getCuerpo().obtener(serpiente.getCuerpo().tamanio() - 1);
-        boolean comioEnEsteTurno = consumibleActual.chocaCon(nuevoX, nuevoY);
+
+        boolean comioManzana = manzanaActual != null && manzanaActual.chocaCon(nuevoX, nuevoY);
+        boolean comioEspecial = itemEspecialActual != null && itemEspecialActual.chocaCon(nuevoX, nuevoY);
+        boolean comioEnEsteTurno = comioManzana || comioEspecial;
 
         pilaDeshacer.apilar(new EstadoTurno(colaActual.getX(), colaActual.getY(), comioEnEsteTurno, puntaje, serpiente.getVidas()));
 
         // Mover cabeza
         serpiente.getCuerpo().insertar(0, new SegmentoSnake(nuevoX, nuevoY));
+        if(comioManzana) {
+            manzanaActual.alInteractuar(serpiente);
+            puntaje+= manzanaActual.getPuntos();
+            generarManzana();
+            verificarProgresion();
+        }
+
+        if (comioEspecial) {
+            itemEspecialActual.alInteractuar(serpiente);
+            puntaje += itemEspecialActual.getPuntos();
+            itemEspecialActual = null;
+            verificarProgresion();
+        }
 
         // Interacción con consumible
-        if (comioEnEsteTurno) {
-            consumibleActual.alInteractuar(serpiente);
-            puntaje += consumibleActual.getPuntos();
-            generarNuevoConsumible();
-            verificarProgresion();
-        } else {
+        if (!comioEnEsteTurno) {
             serpiente.getCuerpo().eliminar(serpiente.getCuerpo().tamanio() - 1);
+        }
+
+        if (hayObstaculo(nuevoX, nuevoY)) {
+            serpiente.quitarVida();
+            if (serpiente.estaViva()) reiniciarPosicion();
+            return;
+        }
+    }
+
+    private boolean celdaLibre(int x, int y) {
+        if (hayObstaculo(x, y)) return false;
+        for (int i = 0; i < serpiente.getCuerpo().tamanio(); i++) {
+            if (serpiente.getCuerpo().obtener(i).chocaCon(x, y)) return false;
+        }
+        if (manzanaActual != null && manzanaActual.chocaCon(x, y)) return false;
+        if (itemEspecialActual != null && itemEspecialActual.chocaCon(x, y)) return false;
+        return true;
+    }
+
+
+    private void agregarFrasco(int x, int y, int ancho, int alto) {
+        for (int dx = 0; dx < ancho; dx++) {
+            for (int dy = 0; dy < alto; dy++) {
+                obstaculosDelNivel.agregar(new Coordenada(x + dx, y + dy));
+            }
+        }
+    }
+
+    private boolean hayObstaculo(int cx, int cy) {
+        for (int i = 0; i < obstaculosDelNivel.tamanio(); i++) {
+            Coordenada c = obstaculosDelNivel.obtener(i);
+            if (c.getX() == cx && c.getY() == cy) return true;
+        }
+        return false;
+    }
+
+    private void cargarObstaculosDelNivel(int nivel) {
+        obstaculosDelNivel = new ListaDoble<>();
+
+        switch (Math.min(nivel, 3)) {
+            case 1:
+                agregarFrasco(17, 2, 2, 3);
+                agregarFrasco(10, 6, 2, 3);
+                agregarFrasco(27, 3, 3, 4);
+                break;
+            case 2:
+                agregarFrasco(11, 1, 2, 3);
+                agregarFrasco(18, 1, 2, 3);
+                agregarFrasco(4, 2, 2, 3);
+                agregarFrasco(25, 2, 2, 3);
+                agregarFrasco(7, 5, 2, 3);
+                agregarFrasco(22, 5, 2, 3);
+                agregarFrasco(15, 7, 2, 3);
+                break;
+            case 3:
+                agregarFrasco(6, 0, 2, 3);
+                agregarFrasco(23, 0, 2, 3);
+                agregarFrasco(12, 1, 2, 3);
+                agregarFrasco(17, 1, 2, 3);
+                agregarFrasco(2, 2, 2, 3);
+                agregarFrasco(27, 2, 2, 3);
+                agregarFrasco(8, 3, 2, 3);
+                agregarFrasco(21, 3, 2, 3);
+                agregarFrasco(4, 5, 2, 3);
+                agregarFrasco(25, 5, 2, 3);
+                agregarFrasco(11, 7, 2, 3);
+                agregarFrasco(17, 7, 2, 3);
+                break;
         }
     }
 
@@ -203,22 +343,6 @@ public class JuegoEscena extends Escena {
         this.puntaje = Math.max(0, previo.getPuntajePrevio() - 5); // Penalización de 5 puntos por usar Z
     }
 
-    private void generarNuevoConsumible() {
-        int rx = random.nextInt(columnas);
-        int ry = random.nextInt(filas);
-        int tipo = random.nextInt(10);
-
-        if (tipo < 6) {
-            consumibleActual = new Manzana(rx, ry);
-        } else if (tipo < 8) {
-            consumibleActual = new Cientifico(rx, ry);
-        } else {
-            consumibleActual = new Veneno(rx, ry);
-        }
-        if (timerConsumible != null) {
-            timerConsumible.reiniciar();
-        }
-    }
 
     private void verificarProgresion() {
         if (this.puntaje >= metaPuntos) {
@@ -233,16 +357,22 @@ public class JuegoEscena extends Escena {
     @Override
     public void dibujar(Graphics2D g) {
         // Fondo
-        g.setColor(Color.BLACK);
-        g.fillRect(0, 0, getContexto().getAncho(), getContexto().getAlto());
+        g.drawImage(fondoUI, 0, 0, null);
 
-        // Dibujar Entidades
-        if (consumibleActual != null) consumibleActual.dibujar(g);
-        serpiente.dibujar(g);
+        Graphics2D g2d = (Graphics2D) g.create();
+        g2d.translate(Nivel.areaX,Nivel.areaY);
+
+
+        if (manzanaActual != null) manzanaActual.dibujar(g2d);
+        if (itemEspecialActual != null) itemEspecialActual.dibujar(g2d);
+        serpiente.dibujar(g2d, direccionActual);
+
+        g2d.dispose();
 
         // HUD
-        g.setColor(Color.WHITE);
-        Texto.izquierda(g, "Nivel: " + nivel + " | Puntos: " + puntaje + " / " + metaPuntos + " | Vidas: " + serpiente.getVidas(), 10, 25, 18, Color.WHITE);
-        Texto.derecha(g, "Z: Deshacer", getContexto().getAncho() - 10, 25, 16, Color.YELLOW);
+        Color verdeClaro = new Color(156, 238, 194); // mismo verde del tablero
+        Texto.centrado(g, puntaje + " / " + metaPuntos, 735, 95, 64, verdeClaro);
+        BarraDeVida.dibujar(g, serpiente.getVidas(), 198, 48);
+
     }
 }

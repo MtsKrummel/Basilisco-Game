@@ -37,7 +37,12 @@ public class Ventana {
                 g2.dispose();
             }
         };
-        panel.setPreferredSize(new Dimension(ancho, alto));
+        Dimension dim = new Dimension(ancho, alto);
+        panel.setPreferredSize(dim);
+        panel.setMinimumSize(dim);
+        panel.setMaximumSize(dim);
+        panel.setSize(dim);
+
         panel.setFocusable(true);
         panel.addKeyListener(motor.getEntrada());
         panel.addMouseListener(motor.getEntrada());
@@ -45,7 +50,8 @@ public class Ventana {
 
         marco.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         marco.setResizable(false);
-        marco.add(panel);
+
+        marco.setContentPane(panel);
         marco.pack();
         marco.setLocationRelativeTo(null);
 
