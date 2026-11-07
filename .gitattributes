@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Los scripts deben conservar su fin de linea original en cualquier sistema
+*.sh  text eol=lf
+*.bat text eol=crlf
