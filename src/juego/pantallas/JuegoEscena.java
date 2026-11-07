@@ -26,6 +26,7 @@ import juego.reglas.Nivel;
 public class JuegoEscena extends Escena {
     private int nivel;
     private int puntaje;
+    private int puntajeAcumulado;
     private int metaPuntos;
 
     private int columnas;
@@ -70,7 +71,8 @@ public class JuegoEscena extends Escena {
 
     public JuegoEscena(int nivel, int puntajeAcumulado) {
         this.nivel = nivel;
-        this.puntaje = puntajeAcumulado;
+        this.puntajeAcumulado = puntajeAcumulado;
+        this.puntaje = 0;
         this.colaGiros = new ColaNodos<>();
         this.pilaDeshacer = new PilaNodos<>();
         this.random = new Random();
@@ -99,13 +101,13 @@ public class JuegoEscena extends Escena {
 
         if (nivel == 1) {
             metaPuntos = 150;
-            timerPaso = new Temporizador(0.35);
+            timerPaso = new Temporizador(0.25);
         } else if (nivel == 2) {
             metaPuntos = 250;
-            timerPaso = new Temporizador(0.25);
+            timerPaso = new Temporizador(0.20);
         } else {
             metaPuntos = 350;
-            timerPaso = new Temporizador(0.18);
+            timerPaso = new Temporizador(0.15);
         }
     }
 
@@ -176,7 +178,7 @@ public class JuegoEscena extends Escena {
 
     private void avanzarTurno() {
         if (!serpiente.estaViva()) {
-            getContexto().irA(new FinEscena(this.puntaje, false));
+            getContexto().irA(new FinEscena(puntaje + puntajeAcumulado, false));
             return;
         }
 
@@ -238,7 +240,7 @@ public class JuegoEscena extends Escena {
 
         if (comioEspecial) {
             itemEspecialActual.alInteractuar(serpiente);
-            puntaje += itemEspecialActual.getPuntos();
+            puntaje = Math.max(0, puntaje + itemEspecialActual.getPuntos());
             itemEspecialActual = null;
             verificarProgresion();
         }
@@ -340,16 +342,16 @@ public class JuegoEscena extends Escena {
             serpiente.getCuerpo().agregar(new SegmentoSnake(previo.getColaX(), previo.getColaY()));
         }
 
-        this.puntaje = Math.max(0, previo.getPuntajePrevio() - 5); // Penalización de 5 puntos por usar Z
+        this.puntaje = Math.max(0, previo.getPuntajePrevio() - 5);
     }
 
 
     private void verificarProgresion() {
         if (this.puntaje >= metaPuntos) {
             if (nivel < 3) {
-                getContexto().irA(new JuegoEscena(nivel + 1, puntaje));
+                getContexto().irA(new JuegoEscena(nivel + 1, puntajeAcumulado + puntaje));
             } else {
-                getContexto().irA(new FinEscena(puntaje, true));
+                getContexto().irA(new FinEscena(puntajeAcumulado + puntaje, true));
             }
         }
     }
